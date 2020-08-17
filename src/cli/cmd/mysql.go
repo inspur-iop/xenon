@@ -261,11 +261,23 @@ func mysqlRebuildMeCommandFn(cmd *cobra.Command, args []string) {
 	}
 
 	// 9. do backup from bestone
+	remoteBackupConfig := conf.Backup
 	{
 		log.Warning("S9-->xtrabackup.begin....")
-		rsp, err := callx.RequestBackupRPC(bestone, conf, conf.Backup.BackupDir)
+
+		log.Warning("S9.0-->get.backup.config....")
+		rsp, err := callx.GetBackupConfigRPC(bestone)
 		ErrorOK(err)
 		RspOK(rsp.RetCode)
+		remoteBackupConfig = rsp.Config
+	}
+
+	{
+		log.Warning("S9.1-->get.backup....")
+		rsp, err := callx.RequestBackupRPC(self, remoteBackupConfig, conf.Backup.BackupDir)
+		ErrorOK(err)
+		RspOK(rsp.RetCode)
+
 		log.Warning("S9-->xtrabackup.end....")
 	}
 
@@ -413,11 +425,23 @@ func mysqlDoBackupCommandFn(cmd *cobra.Command, args []string) {
 	}
 
 	// 3. do backup from bestone
+	remoteBackupConfig := conf.Backup
 	{
 		log.Warning("S3-->xtrabackup.begin....")
-		rsp, err := callx.RequestBackupRPC(bestone, conf, backupdir)
+
+		log.Warning("S3.0-->get.backup.config....")
+		rsp, err := callx.GetBackupConfigRPC(bestone)
 		ErrorOK(err)
 		RspOK(rsp.RetCode)
+		remoteBackupConfig = rsp.Config
+	}
+
+	{
+		log.Warning("S3.1-->get.backup....")
+		rsp, err := callx.RequestBackupRPC(self, remoteBackupConfig, conf.Backup.BackupDir)
+		ErrorOK(err)
+		RspOK(rsp.RetCode)
+
 		log.Warning("S3-->xtrabackup.end....")
 	}
 

@@ -8,11 +8,16 @@
 
 package model
 
+import (
+	"config"
+)
+
 const (
-	RPCBackupStatus   = "BackupRPC.GetBackupStatus"
-	RPCBackupDo       = "BackupRPC.DoBackup"
-	RPCBackupCancel   = "BackupRPC.CancelBackup"
-	RPCBackupApplyLog = "BackupRPC.DoApplyLog"
+	RPCBackupStatus    = "BackupRPC.GetBackupStatus"
+	RPCBackupDo        = "BackupRPC.DoBackup"
+	RPCBackupCancel    = "BackupRPC.CancelBackup"
+	RPCBackupApplyLog  = "BackupRPC.DoApplyLog"
+	RPCGetBackupConfig = "BackupRPC.GetBackupConfig"
 )
 
 type BackupStats struct {
@@ -62,6 +67,27 @@ type BackupRPCRequest struct {
 
 	// The xtrabackup/xbstream binary dir
 	XtrabackupBinDir string
+
+	// The xtrabackup parallel
+	Parallel int
+
+	// mysql admin
+	Admin string
+
+	// mysql passed
+	Passwd string
+
+	// mysql host
+	Host string
+
+	// mysql port
+	Port int
+
+	// mysql basedir
+	Basedir string
+
+	// mysql default file
+	DefaultsFile string
 }
 
 type BackupRPCResponse struct {
@@ -70,10 +96,21 @@ type BackupRPCResponse struct {
 	RetCode string
 }
 
+type GetBackupConfigRPCResponse struct {
+	// Return code to rpc client:
+	// OK or other errors
+	RetCode string
+	Config  *config.BackupConfig
+}
+
 func NewBackupRPCRequest() *BackupRPCRequest {
 	return &BackupRPCRequest{}
 }
 
 func NewBackupRPCResponse(code string) *BackupRPCResponse {
 	return &BackupRPCResponse{RetCode: code}
+}
+
+func NewGetBackupConfigRPCResponse(code string) *GetBackupConfigRPCResponse {
+	return &GetBackupConfigRPCResponse{RetCode: code}
 }

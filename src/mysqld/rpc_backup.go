@@ -54,3 +54,10 @@ func (b *BackupRPC) CancelBackup(req *model.BackupRPCRequest, rsp *model.BackupR
 	}
 	return nil
 }
+
+// GetBackupConfig used to get backup config.
+func (b *BackupRPC) GetBackupConfig(req *model.BackupRPCRequest, rsp *model.GetBackupConfigRPCResponse) error {
+	rsp.RetCode = model.OK
+	rsp.Config = b.mysqld.backup.GetBackupConfig()
+	return nil
+}

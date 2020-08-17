@@ -404,8 +404,8 @@ func GetMysqldStatusRPC(node string) (*model.MysqldStatusRPCResponse, error) {
 	return rsp, err
 }
 
-func RequestBackupRPC(fromnode string, conf *config.Config, backupdir string) (*model.BackupRPCResponse, error) {
-	cli, cleanup, err := GetClient(fromnode)
+func RequestBackupRPC(self string, conf *config.BackupConfig, backupdir string) (*model.BackupRPCResponse, error) {
+	cli, cleanup, err := GetClient(self)
 	if err != nil {
 		return nil, err
 	}
@@ -413,19 +413,45 @@ func RequestBackupRPC(fromnode string, conf *config.Config, backupdir string) (*
 
 	method := model.RPCBackupDo
 	req := model.NewBackupRPCRequest()
-	req.SSHHost = conf.Backup.SSHHost
-	req.SSHUser = conf.Backup.SSHUser
-	req.SSHPasswd = conf.Backup.SSHPasswd
-	req.SSHPort = conf.Backup.SSHPort
-	req.IOPSLimits = conf.Backup.BackupIOPSLimits
+	req.SSHHost = conf.SSHHost
+	req.SSHUser = conf.SSHUser
+	req.SSHPasswd = conf.SSHPasswd
+	req.SSHPort = conf.SSHPort
+	req.IOPSLimits = conf.BackupIOPSLimits
 	req.BackupDir = backupdir
-	req.XtrabackupBinDir = conf.Backup.XtrabackupBinDir
-	log.Warning("rebuildme.backup.req[%+v].from[%v]", req, fromnode)
+	req.XtrabackupBinDir = conf.XtrabackupBinDir
+	req.Parallel = conf.Parallel
+	req.Admin = conf.Admin
+	req.Passwd = conf.Passwd
+	req.Host = conf.Host
+	req.Port = conf.Port
+	req.Basedir = conf.Basedir
+	req.DefaultsFile = conf.DefaultsFile
+
+	log.Warning("rebuildme.backup.req[%+v]", req)
 
 	rsp := model.NewBackupRPCResponse(model.OK)
 	err = cli.Call(method, req, rsp)
 
 	return rsp, err
+}
+
+func GetBackupConfigRPC(node string) (*model.GetBackupConfigRPCResponse, error) {
+	cli, cleanup, err := GetClient(node)
+	if err != nil {
+		return nil, err
+	}
+	defer cleanup()
+
+	method := model.RPCGetBackupConfig
+	req := model.NewBackupRPCRequest()
+
+	rsp := model.NewGetBackupConfigRPCResponse(model.OK)
+	err = cli.Call(method, req, rsp)
+
+	log.Warning("rebuildme.get.backup.config[%+v].from[%v]", rsp, node)
+	return rsp, err
+
 }
 
 func BackupCancelRPC(self string) (*model.BackupRPCResponse, error) {

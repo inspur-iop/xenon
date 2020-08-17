@@ -97,45 +97,46 @@ func (b *Backup) backupCommands(iskey bool, req *model.BackupRPCRequest) []strin
 	var arg string
 	var backup string
 	var ssh string
+	var xbstream string
 
 	if b.conf.Passwd == "" {
 		backup = fmt.Sprintf("%s/innobackupex --defaults-file=%s --host=%s --port=%d --user=%s --throttle=%d --parallel=%d --stream=xbstream ./",
-			b.conf.XtrabackupBinDir,
-			b.conf.DefaultsFile,
-			b.conf.Host,
-			b.conf.Port,
-			b.conf.Admin,
+			req.XtrabackupBinDir,
+			req.DefaultsFile,
+			req.Host,
+			req.Port,
+			req.Admin,
 			req.IOPSLimits,
-			b.conf.Parallel)
+			req.Parallel)
 	} else {
 		backup = fmt.Sprintf("%s/innobackupex --defaults-file=%s --host=%s --port=%d --user=%s --password=%s --throttle=%d --parallel=%d --stream=xbstream ./",
-			b.conf.XtrabackupBinDir,
-			b.conf.DefaultsFile,
-			b.conf.Host,
-			b.conf.Port,
-			b.conf.Admin,
-			b.conf.Passwd,
+			req.XtrabackupBinDir,
+			req.DefaultsFile,
+			req.Host,
+			req.Port,
+			req.Admin,
+			req.Passwd,
 			req.IOPSLimits,
-			b.conf.Parallel)
+			req.Parallel)
 	}
 
 	if iskey {
-		ssh = fmt.Sprintf("ssh -o 'StrictHostKeyChecking=no' %s@%s -p %d \"%s/xbstream -x -C %s\"",
+		ssh = fmt.Sprintf("ssh -o 'StrictHostKeyChecking=no' %s@%s -p %d \"%s\"",
 			req.SSHUser,
 			req.SSHHost,
 			req.SSHPort,
-			req.XtrabackupBinDir,
-			req.BackupDir)
+			backup)
 	} else {
-		ssh = fmt.Sprintf("sshpass -p %s ssh -o 'StrictHostKeyChecking=no' %s@%s -p %d \"%s/xbstream -x -C %s\"",
+		ssh = fmt.Sprintf("sshpass -p %s ssh -o 'StrictHostKeyChecking=no' %s@%s -p %d \"%s\"",
 			req.SSHPasswd,
 			req.SSHUser,
 			req.SSHHost,
 			req.SSHPort,
-			req.XtrabackupBinDir,
-			req.BackupDir)
+			backup)
 	}
-	arg = fmt.Sprintf("%s | %s", backup, ssh)
+
+	xbstream = fmt.Sprintf("%s/xbstream -x -C %s", b.conf.XtrabackupBinDir, b.conf.BackupDir)
+	arg = fmt.Sprintf("%s | %s", ssh, xbstream)
 	return []string{
 		"-c",
 		arg,
@@ -245,6 +246,11 @@ func (b *Backup) ApplyLog(req *model.BackupRPCRequest) error {
 	b.IncApplyLogs()
 	log.Warning("applylog.done")
 	return nil
+}
+
+// GetBackupConfig used to get backup config.
+func (b *Backup) GetBackupConfig() *config.BackupConfig {
+	return b.conf
 }
 
 func (b *Backup) setStatus(s model.MYSQLD_STATUS) {
