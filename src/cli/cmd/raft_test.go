@@ -14,6 +14,7 @@ import (
 	"raft"
 	"server"
 	"testing"
+	"time"
 	"xbase/common"
 	"xbase/xlog"
 
@@ -43,11 +44,12 @@ func TestCLIRaftCommand(t *testing.T) {
 		}
 	}
 
+	conf, err := GetConfig()
+
 	// 1. test disable raft to leader
 	{
 		// setting xenon is leader
 		{
-			conf, err := GetConfig()
 			ErrorOK(err)
 			conf.Server.Endpoint = leader
 			err = SaveConfig(conf)
@@ -89,6 +91,9 @@ func TestCLIRaftCommand(t *testing.T) {
 			_, err := executeCommand(cmd, "trytoleader")
 			assert.Nil(t, err)
 		}
+
+		// wait cli done, avoid enable cmd changes STOPPED to FOLLOWER
+		time.Sleep(time.Duration(conf.Raft.ElectionTimeout))
 	}
 
 	// 2. test add/remove ndoes to local
@@ -146,6 +151,20 @@ func TestCLIRaftCommand(t *testing.T) {
 		{
 			cmd := NewRaftCommand()
 			_, err := executeCommand(cmd, "enablepurgebinlog")
+			assert.Nil(t, err)
+		}
+
+		// disable check semi-sync
+		{
+			cmd := NewRaftCommand()
+			_, err := executeCommand(cmd, "disablechecksemisync")
+			assert.Nil(t, err)
+		}
+
+		// enable check semi-sync
+		{
+			cmd := NewRaftCommand()
+			_, err := executeCommand(cmd, "enablechecksemisync")
 			assert.Nil(t, err)
 		}
 	}

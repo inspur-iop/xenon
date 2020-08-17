@@ -70,7 +70,7 @@ func TestRaftStateString(t *testing.T) {
 func TestRaftQuorums(t *testing.T) {
 	log := xlog.NewStdLog(xlog.Level(xlog.PANIC))
 	port := common.RandomPort(8000, 9000)
-	_, rafts, cleanup := MockRafts(log, port, 3)
+	_, rafts, cleanup := MockRafts(log, port, 3, -1)
 	defer cleanup()
 	raft := rafts[0]
 
@@ -101,7 +101,7 @@ func TestRaftClusterOnly1Node(t *testing.T) {
 
 	log := xlog.NewStdLog(xlog.Level(xlog.PANIC))
 	port := common.RandomPort(8000, 9000)
-	_, rafts, cleanup := MockRafts(log, port, 1)
+	_, rafts, cleanup := MockRafts(log, port, 1, -1)
 	defer cleanup()
 
 	// 1. Start 1 rafts state as FOLLOWER
@@ -152,7 +152,7 @@ func TestRaftLeaderDown(t *testing.T) {
 
 	log := xlog.NewStdLog(xlog.Level(xlog.PANIC))
 	port := common.RandomPort(8000, 9000)
-	_, rafts, cleanup := MockRafts(log, port, 3)
+	_, rafts, cleanup := MockRafts(log, port, 3, -1)
 	defer cleanup()
 
 	// 1. Start 3 rafts state as FOLLOWER
@@ -248,7 +248,7 @@ func TestRaftLeaderLocalCommit(t *testing.T) {
 
 	log := xlog.NewStdLog(xlog.Level(xlog.PANIC))
 	port := common.RandomPort(8000, 9000)
-	_, rafts, cleanup := MockRafts(log, port, 3)
+	_, rafts, cleanup := MockRafts(log, port, 3, -1)
 	defer cleanup()
 
 	// 1. Start 3 rafts state as FOLLOWER
@@ -358,12 +358,12 @@ func TestRaftDoubleClusterDiffraction(t *testing.T) {
 
 	// cluster1
 	port := common.RandomPort(8000, 9000)
-	_, rafts1, cleanup1 := MockRafts(log, port, 2)
+	_, rafts1, cleanup1 := MockRafts(log, port, 2, -1)
 	defer cleanup1()
 
 	// cluster2
 	port = common.RandomPort(8000, 9000)
-	_, rafts2, cleanup2 := MockRafts(log, port, 2)
+	_, rafts2, cleanup2 := MockRafts(log, port, 2, -1)
 	defer cleanup2()
 
 	// Start cluster1
@@ -517,7 +517,7 @@ func TestRaftLeaderDownAndUp(t *testing.T) {
 
 	log := xlog.NewStdLog(xlog.Level(xlog.PANIC))
 	port := common.RandomPort(8000, 9000)
-	_, rafts, cleanup := MockRafts(log, port, 3)
+	_, rafts, cleanup := MockRafts(log, port, 3, -1)
 	defer cleanup()
 
 	// 1.  Start 3 rafts and all state as FOLLOWER
@@ -633,7 +633,7 @@ func TestRaftEpochChange(t *testing.T) {
 	raftnums = 5
 	log := xlog.NewStdLog(xlog.Level(xlog.PANIC))
 	port := common.RandomPort(8000, 9000)
-	cluster, rafts, cleanup := MockRafts(log, port, int(raftnums))
+	cluster, rafts, cleanup := MockRafts(log, port, int(raftnums), -1)
 	defer cleanup()
 
 	// 1. Start rafts state as FOLLOWER
@@ -749,7 +749,7 @@ func TestRaftEpochChangeUnderIDLE(t *testing.T) {
 	raftnums = 5
 	log := xlog.NewStdLog(xlog.Level(xlog.PANIC))
 	port := common.RandomPort(8100, 8200)
-	cluster, rafts, cleanup := MockRafts(log, port, int(raftnums))
+	cluster, rafts, cleanup := MockRafts(log, port, int(raftnums), -1)
 	defer cleanup()
 
 	// 1. Start rafts state as FOLLOWER
@@ -861,7 +861,7 @@ func TestRaftElectionUnderIDLEInMajority(t *testing.T) {
 	idles := int(raftnums - (raftnums / 2))
 	actives := int(raftnums) - idles
 	port := common.RandomPort(8100, 8200)
-	_, rafts, cleanup := MockRafts(log, port, int(raftnums))
+	_, rafts, cleanup := MockRafts(log, port, int(raftnums), int(raftnums/2))
 	defer cleanup()
 
 	// 1. Start rafts state as FOLLOWER
@@ -870,8 +870,8 @@ func TestRaftElectionUnderIDLEInMajority(t *testing.T) {
 			raft.Start()
 		}
 
-		// set idles FOLLOWERs to IDLE
-		for i := 0; i < idles; i++ {
+		// set more than half of the nodes to IDLE
+		for i := actives; i < int(raftnums); i++ {
 			MockStateTransition(rafts[i], IDLE)
 		}
 
@@ -895,8 +895,8 @@ func TestRaftElectionUnderIDLEInMajority(t *testing.T) {
 		//(LEADER + FOLLOWER*(actives - 1) + IDLE*idles))
 		assert.Equal(t, want, got)
 
-		// check the leader idx > idles - 1
-		assert.True(t, whoisleader > (idles-1), "")
+		// check the leader idx < idles - 1
+		assert.True(t, whoisleader < (idles-1), "")
 
 		// get [idles-1]'s leader
 		leader = rafts[idles-1].getLeader()
@@ -904,6 +904,8 @@ func TestRaftElectionUnderIDLEInMajority(t *testing.T) {
 
 	// 3. make leader to IDLE and check the IDLEs got the newone
 	{
+		MockSetMysqlHandler(rafts[0], mysql.NewMockGTIDA())
+
 		// make leader to IDLE
 		MockStateTransition(rafts[whoisleader], IDLE)
 		MockWaitLeaderEggs(rafts, 1)
@@ -927,7 +929,7 @@ func TestRaftStartAsIDLE(t *testing.T) {
 	conf := config.DefaultRaftConfig()
 	conf.SuperIDLE = true
 	port := common.RandomPort(8100, 8200)
-	_, rafts, cleanup := MockRaftsWithConfig(log, conf, port, 1)
+	_, rafts, cleanup := MockRaftsWithConfig(log, conf, port, 1, 0)
 	defer cleanup()
 
 	// 1. Start rafts
@@ -955,7 +957,7 @@ func TestRaftStartAsFOLLOWER(t *testing.T) {
 	log := xlog.NewStdLog(xlog.Level(xlog.PANIC))
 	conf := config.DefaultRaftConfig()
 	port := common.RandomPort(8100, 8200)
-	_, rafts, cleanup := MockRaftsWithConfig(log, conf, port, 1)
+	_, rafts, cleanup := MockRaftsWithConfig(log, conf, port, 1, -1)
 	defer cleanup()
 
 	// 1. Start rafts
@@ -986,7 +988,7 @@ func TestRaftStartAsFOLLOWER(t *testing.T) {
 //
 // TEST PROCESSES:
 // 1. Start 11 rafts state as FOLLOWER
-// 2. wait leader election from 10 FOLLOWERs
+// 2. wait leader election from 11 FOLLOWERs
 // 3. Stop the leader
 // 4. wait the new leader eggs
 // 5. Byzantine Failures Attack
@@ -998,7 +1000,7 @@ func TestRaft11Rafts1Cluster(t *testing.T) {
 	raftnums = 11
 	log := xlog.NewStdLog(xlog.Level(xlog.PANIC))
 	port := common.RandomPort(8600, 9000)
-	_, rafts, cleanup := MockRafts(log, port, int(raftnums))
+	_, rafts, cleanup := MockRafts(log, port, int(raftnums), -1)
 	defer cleanup()
 
 	// 1. Start rafts state as FOLLOWER
@@ -1098,7 +1100,7 @@ func TestRaftLeaderWithGTID(t *testing.T) {
 
 	log := xlog.NewStdLog(xlog.Level(xlog.PANIC))
 	port := common.RandomPort(8000, 9000)
-	_, rafts, cleanup := MockRafts(log, port, 3)
+	_, rafts, cleanup := MockRafts(log, port, 3, -1)
 	defer cleanup()
 
 	GTIDAIDX := 0
@@ -1200,7 +1202,7 @@ func TestRaftWithFollowerGetSlaveGTIDError(t *testing.T) {
 
 	log := xlog.NewStdLog(xlog.Level(xlog.PANIC))
 	port := common.RandomPort(8000, 9000)
-	_, rafts, cleanup := MockRafts(log, port, 3)
+	_, rafts, cleanup := MockRafts(log, port, 3, -1)
 	defer cleanup()
 
 	GTIDAIDX := 0
@@ -1271,7 +1273,7 @@ func TestRaftLeaderPurgeBinlog(t *testing.T) {
 
 	log := xlog.NewStdLog(xlog.Level(xlog.PANIC))
 	port := common.RandomPort(8000, 9000)
-	_, rafts, cleanup := MockRaftsWithConfig(log, conf, port, 3)
+	_, rafts, cleanup := MockRaftsWithConfig(log, conf, port, 3, -1)
 	defer cleanup()
 
 	// 1. set rafts GTID
@@ -1352,6 +1354,83 @@ func TestRaftLeaderPurgeBinlog(t *testing.T) {
 }
 
 // TEST EFFECTS:
+// test the leader check semi-sync
+//
+// TEST PROCESSES:
+// 1. set rafts GTID
+//    1.0 rafts[0]  with MockGTID_X1{Master_Log_File = "mysql-bin.000001", Read_Master_Log_Pos = 123}
+//    1.1 rafts[1]  with MockGTID_X3{Master_Log_File = "mysql-bin.000003", Read_Master_Log_Pos = 123}
+//    1.2 rafts[2]  with MockGTID_X5{Master_Log_File = "mysql-bin.000005", Read_Master_Log_Pos = 123}
+// 2. Start 3 rafts state as FOLLOWER
+// 3. wait rafts[2] elected as leader
+// 4. check rafts[2] skipCheckSemiSync
+// 5. Stop all rafts
+func TestRaftLeaderCheckSemiSync(t *testing.T) {
+	conf := config.DefaultRaftConfig()
+	conf.MetaDatadir = "/tmp/"
+
+	log := xlog.NewStdLog(xlog.Level(xlog.PANIC))
+	port := common.RandomPort(8000, 9000)
+	_, rafts, cleanup := MockRaftsWithConfig(log, conf, port, 3, -1)
+	defer cleanup()
+
+	// 1. set rafts GTID
+	//    1.0 rafts[0]  with MockGTIDB{Master_Log_File = "mysql-bin.000001", Read_Master_Log_Pos = 123}
+	//    1.1 rafts[1]  with MockGTIDB{Master_Log_File = "mysql-bin.000003", Read_Master_Log_Pos = 123}
+	//    1.2 rafts[2]  with MockGTIDC{Master_Log_File = "mysql-bin.000005", Read_Master_Log_Pos = 123}
+	{
+		rafts[0].mysql.SetMysqlHandler(mysql.NewMockGTIDX1())
+		rafts[1].mysql.SetMysqlHandler(mysql.NewMockGTIDX3())
+		rafts[2].mysql.SetMysqlHandler(mysql.NewMockGTIDX5())
+	}
+
+	// 2. Start 3 rafts state as FOLLOWER
+	for _, raft := range rafts {
+		raft.Start()
+	}
+
+	// leader
+	{
+		var got State
+		var whoisleader int
+
+		MockWaitLeaderEggs(rafts, 1)
+		MockWaitLeaderEggs(rafts, 0)
+		want := (LEADER + FOLLOWER + FOLLOWER)
+		for i, raft := range rafts {
+			got += raft.getState()
+			if raft.getState() == LEADER {
+				whoisleader = i
+			}
+		}
+
+		assert.Equal(t, want, got)
+		assert.Equal(t, 2, whoisleader)
+
+		// wait for check semi-sync to be invoked and skipCheckSemiSync changed
+		time.Sleep(time.Millisecond * time.Duration(rafts[0].getElectionTimeout()*16))
+		assert.Equal(t, false, rafts[2].skipCheckSemiSync)
+	}
+
+	// disable check semi-sync
+	{
+		rafts[2].SetSkipCheckSemiSync(true)
+		time.Sleep(time.Millisecond * time.Duration(rafts[0].getElectionTimeout()*16))
+		assert.Equal(t, true, rafts[2].skipCheckSemiSync)
+	}
+
+	// enable check semi-sync
+	{
+		rafts[2].SetSkipCheckSemiSync(false)
+
+		MockWaitLeaderEggs(rafts, 0)
+		MockWaitLeaderEggs(rafts, 0)
+
+		assert.Equal(t, false, rafts[2].skipCheckSemiSync)
+	}
+}
+
+// TEST EFFECTS:
 // test the follower change master to failed
 //
 // TEST PROCESSES:
@@ -1372,7 +1451,7 @@ func TestRaftLeaderPurgeBinlog(t *testing.T) {
 func TestRaftChangeMasterToFail(t *testing.T) {
 	log := xlog.NewStdLog(xlog.Level(xlog.PANIC))
 	port := common.RandomPort(8000, 9000)
-	_, rafts, cleanup := MockRafts(log, port, 3)
+	_, rafts, cleanup := MockRafts(log, port, 3, -1)
 	defer cleanup()
 
 	// 1. set rafts GTID
@@ -1490,7 +1569,7 @@ func TestRaftChangeMasterToFail(t *testing.T) {
 func TestRaft1Nodes(t *testing.T) {
 	log := xlog.NewStdLog(xlog.Level(xlog.PANIC))
 	port := common.RandomPort(8000, 9000)
-	_, rafts, cleanup := MockRafts(log, port, 1)
+	_, rafts, cleanup := MockRafts(log, port, 1, -1)
 	defer cleanup()
 	raft := rafts[0]
 
@@ -1534,7 +1613,7 @@ func TestRaft1Nodes(t *testing.T) {
 func TestRaft2Nodes(t *testing.T) {
 	log := xlog.NewStdLog(xlog.Level(xlog.PANIC))
 	port := common.RandomPort(8000, 9000)
-	_, rafts, cleanup := MockRafts(log, port, 2)
+	_, rafts, cleanup := MockRafts(log, port, 2, -1)
 	defer cleanup()
 	raft := rafts[0]
 
@@ -1582,7 +1661,7 @@ func TestRaft2Nodes(t *testing.T) {
 func TestRaft2NodesWithGTID(t *testing.T) {
 	log := xlog.NewStdLog(xlog.Level(xlog.PANIC))
 	port := common.RandomPort(8000, 9000)
-	_, rafts, cleanup := MockRafts(log, port, 2)
+	_, rafts, cleanup := MockRafts(log, port, 2, -1)
 	defer cleanup()
 
 	// 1. set rafts GTID
@@ -1646,7 +1725,7 @@ func TestRaft2NodesWithGTID(t *testing.T) {
 func TestRaftLeaderAckLessThanQuorum(t *testing.T) {
 	log := xlog.NewStdLog(xlog.Level(xlog.PANIC))
 	port := common.RandomPort(8000, 9000)
-	_, rafts, cleanup := MockRafts(log, port, 3)
+	_, rafts, cleanup := MockRafts(log, port, 3, -1)
 	defer cleanup()
 
 	// 1. set rafts GTID
@@ -1704,7 +1783,7 @@ func TestRaftLeaderAckLessThanQuorum(t *testing.T) {
 func TestRaftLeaderWaitUntilAfterGTIDError(t *testing.T) {
 	log := xlog.NewStdLog(xlog.Level(xlog.PANIC))
 	port := common.RandomPort(8000, 9000)
-	_, rafts, cleanup := MockRafts(log, port, 3)
+	_, rafts, cleanup := MockRafts(log, port, 3, -1)
 	defer cleanup()
 
 	// 1. set rafts GTID
@@ -1729,7 +1808,6 @@ func TestRaftLeaderWaitUntilAfterGTIDError(t *testing.T) {
 		want := (LEADER + FOLLOWER + FOLLOWER)
 		for _, raft := range rafts {
 			got += raft.getState()
-			log.Printf("test.raft.state.[%v]", raft.getState())
 		}
 		assert.True(t, got < want)
 	}
@@ -1750,7 +1828,7 @@ func TestRaftLeaderWaitUntilAfterGTIDError(t *testing.T) {
 func TestRaftLeaderChangeToMasterError(t *testing.T) {
 	log := xlog.NewStdLog(xlog.Level(xlog.PANIC))
 	port := common.RandomPort(8000, 9000)
-	_, rafts, cleanup := MockRafts(log, port, 3)
+	_, rafts, cleanup := MockRafts(log, port, 3, -1)
 	defer cleanup()
 
 	// 1. set rafts GTID
@@ -1795,7 +1873,7 @@ func TestRaftLeaderChangeToMasterError(t *testing.T) {
 func TestRaftElectionUnderLearnerInMinority(t *testing.T) {
 	log := xlog.NewStdLog(xlog.Level(xlog.PANIC))
 	port := common.RandomPort(8000, 9000)
-	_, rafts, cleanup := MockRafts(log, port, 3)
+	_, rafts, cleanup := MockRafts(log, port, 3, -1)
 	defer cleanup()
 
 	// 1. set rafts GTID
@@ -1846,5 +1924,73 @@ func TestRaftElectionUnderLearnerInMinority(t *testing.T) {
 		}
 		assert.Equal(t, want, got)
 		assert.Equal(t, whoisleader, 2)
+	}
+}
+
+// TEST EFFECTS:
+// test election under Follower and Candidate alternate
+//
+// TEST PROCESSES:
+// 1.  set rafts GTID
+//     1.0 rafts[0]  with MockGTID_X1{Master_Log_File = "mysql-bin.000001", Read_Master_Log_Pos = 123}
+//     1.1 rafts[1]  with MockGTID_X3{Master_Log_File = "mysql-bin.000003", Read_Master_Log_Pos = 123}
+//     1.2 rafts[2]  with MockGTID_X3{Master_Log_File = "mysql-bin.000003", Read_Master_Log_Pos = 123}
+// 2.  start rafts[0] state as CANDIDATE
+// 3.  wait 30 times the election timeout
+// 4.  start rafts[1] as FOLLOWER and rafts[2] as IDLE
+//                   InvalidGITD
+//     rafts[0]: C --------------> F --------------> C -> ... -> F
+//                                    InvalidViewID
+//     rafts[1]: F --------------> C --------------> F -> ... -> C
+
+// 5.  wait 8 times the election timeout
+// 6.  check if rafts[1] is the leader
+func TestRaftElectionUnderFollowerAndCandidateAlternate(t *testing.T) {
+	log := xlog.NewStdLog(xlog.Level(xlog.PANIC))
+	port := common.RandomPort(8000, 9000)
+	_, rafts, cleanup := MockRafts(log, port, 3, -1)
+	defer cleanup()
+
+	// 1. set rafts GTID
+	{
+		rafts[0].mysql.SetMysqlHandler(mysql.NewMockGTIDX1())
+		rafts[1].mysql.SetMysqlHandler(mysql.NewMockGTIDX3())
+		rafts[2].mysql.SetMysqlHandler(mysql.NewMockGTIDX3())
+	}
+
+	// 2. start rafts[0] state as CANDIDATE
+	{
+		rafts[0].Start()
+		MockStateTransition(rafts[0], CANDIDATE)
+	}
+
+	// 3. wait 30 times the election timeout
+	time.Sleep(time.Millisecond * time.Duration(rafts[0].getElectionTimeout()*30))
+
+	// 4. start rafts[1] as FOLLOWER and rafts[2] as IDLE
+	{
+		rafts[1].Start()
+		MockStateTransition(rafts[1], FOLLOWER)
+		MockStateTransition(rafts[0], CANDIDATE)
+		rafts[2].Start()
+		MockStateTransition(rafts[2], IDLE)
+	}
+
+	// 5. wait 8 times the election timeout
+	time.Sleep(time.Millisecond * time.Duration(rafts[0].getElectionTimeout()*8))
+
+	//6. check if rafts[1] is the leader
+	{
+		var got State
+		var whoisleader int
+		want := (FOLLOWER + LEADER + IDLE)
+		for i, raft := range rafts {
+			got += raft.getState()
+			if raft.getState() == LEADER {
+				whoisleader = i
+			}
+		}
+		assert.Equal(t, want, got)
+		assert.Equal(t, whoisleader, 1)
 	}
 }

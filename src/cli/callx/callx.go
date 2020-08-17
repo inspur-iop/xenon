@@ -503,6 +503,23 @@ func AddNodeRPC(node string, nodes []string) error {
 	return err
 }
 
+func AddIdleNodeRPC(node string, nodes []string) error {
+	cli, cleanup, err := GetClient(node)
+
+	if err != nil {
+		return err
+	}
+	defer cleanup()
+
+	method := model.RPCIdleNodesAdd
+	req := model.NewNodeRPCRequest()
+	req.Nodes = nodes
+	rsp := model.NewNodeRPCResponse(model.OK)
+	err = cli.Call(method, req, rsp)
+
+	return err
+}
+
 func RemoveNodeRPC(node string, nodes []string) error {
 	cli, cleanup, err := GetClient(node)
 	if err != nil {
@@ -511,6 +528,21 @@ func RemoveNodeRPC(node string, nodes []string) error {
 	defer cleanup()
 
 	method := model.RPCNodesRemove
+	req := model.NewNodeRPCRequest()
+	req.Nodes = nodes
+	rsp := model.NewNodeRPCResponse(model.OK)
+	err = cli.Call(method, req, rsp)
+	return err
+}
+
+func RemoveIdleNodeRPC(node string, nodes []string) error {
+	cli, cleanup, err := GetClient(node)
+	if err != nil {
+		return err
+	}
+	defer cleanup()
+
+	method := model.RPCIdleNodesRemove
 	req := model.NewNodeRPCRequest()
 	req.Nodes = nodes
 	rsp := model.NewNodeRPCResponse(model.OK)
@@ -639,6 +671,36 @@ func RaftDisablePurgeBinlogRPC(node string) error {
 	return err
 }
 
+func RaftEnableCheckSemiSyncRPC(node string) error {
+	cli, cleanup, err := GetClient(node)
+	if err != nil {
+		return err
+	}
+	defer cleanup()
+
+	method := model.RPCRaftEnableCheckSemiSync
+	req := model.NewRaftStatusRPCRequest()
+	rsp := model.NewRaftStatusRPCResponse(model.OK)
+	err = cli.Call(method, req, rsp)
+
+	return err
+}
+
+func RaftDisableCheckSemiSyncRPC(node string) error {
+	cli, cleanup, err := GetClient(node)
+	if err != nil {
+		return err
+	}
+	defer cleanup()
+
+	method := model.RPCRaftDisableCheckSemiSync
+	req := model.NewRaftStatusRPCRequest()
+	rsp := model.NewRaftStatusRPCResponse(model.OK)
+	err = cli.Call(method, req, rsp)
+
+	return err
+}
+
 // mysql
 func WaitMysqlWorkingRPC(node string) error {
 	cli, cleanup, err := GetClient(node)
@@ -733,7 +795,7 @@ func GetMysqlUserRPC(node string) (*model.MysqlUserRPCResponse, error) {
 	return rsp, err
 }
 
-func CreateNormalUserRPC(node string, user string, passwd string) (*model.MysqlUserRPCResponse, error) {
+func CreateNormalUserRPC(node string, user string, host string, passwd string, ssl string) (*model.MysqlUserRPCResponse, error) {
 	cli, cleanup, err := GetClient(node)
 	if err != nil {
 		return nil, err
@@ -743,14 +805,16 @@ func CreateNormalUserRPC(node string, user string, passwd string) (*model.MysqlU
 	method := model.RPCMysqlCreateNormalUser
 	req := model.NewMysqlUserRPCRequest()
 	req.User = user
+	req.Host = host
 	req.Passwd = passwd
+	req.SSL = ssl
 	rsp := model.NewMysqlUserRPCResponse(model.OK)
 	err = cli.Call(method, req, rsp)
 
 	return rsp, err
 }
 
-func CreateSuperUserRPC(node string, user string, passwd string, ssl string) (*model.MysqlUserRPCResponse, error) {
+func CreateSuperUserRPC(node string, user string, host string, passwd string, ssl string) (*model.MysqlUserRPCResponse, error) {
 	cli, cleanup, err := GetClient(node)
 	if err != nil {
 		return nil, err
@@ -760,6 +824,7 @@ func CreateSuperUserRPC(node string, user string, passwd string, ssl string) (*m
 	method := model.RPCMysqlCreateSuperUser
 	req := model.NewMysqlUserRPCRequest()
 	req.User = user
+	req.Host = host
 	req.Passwd = passwd
 	req.SSL = ssl
 	rsp := model.NewMysqlUserRPCResponse(model.OK)

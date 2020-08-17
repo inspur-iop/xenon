@@ -72,21 +72,21 @@ type MysqlHandler interface {
 	// disable master semi sync: don't wait slave ack
 	DisableSemiSyncMaster(db *sql.DB) error
 
-	// set semi-sync master-timeout = default
-	SetSemiSyncMasterDefault(db *sql.DB) error
+	// set semi-sync master-timeout
+	SetSemiSyncMasterTimeout(db *sql.DB, timeout uint64) error
 
 	//set rpl_semi_master_wait_for_slave_count
 	SetSemiWaitSlaveCount(db *sql.DB, count int) error
 
 	// User handlers.
 	GetUser(*sql.DB) ([]model.MysqlUser, error)
-	CheckUserExists(*sql.DB, string) (bool, error)
-	CreateUser(*sql.DB, string, string) error
+	CheckUserExists(*sql.DB, string, string) (bool, error)
+	CreateUser(*sql.DB, string, string, string, string) error
 	DropUser(*sql.DB, string, string) error
 	ChangeUserPasswd(*sql.DB, string, string, string) error
 	CreateReplUserWithoutBinlog(*sql.DB, string, string) error
-	GrantAllPrivileges(*sql.DB, string, string, string) error
-	GrantNormalPrivileges(*sql.DB, string) error
+	GrantAllPrivileges(*sql.DB, string, string, string, string) error
+	GrantNormalPrivileges(*sql.DB, string, string) error
 	CreateUserWithPrivileges(db *sql.DB, user, passwd, database, table, host, privs string, ssl string) error
 	GrantReplicationPrivileges(*sql.DB, string) error
 }

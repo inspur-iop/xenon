@@ -23,7 +23,7 @@ import (
 const (
 	// backupOk used to completed of xtrabackup
 	backupOk           = "completed OK!"
-	backupOkCheckTimes = 2
+	backupOkCheckTimes = 1
 )
 
 // Backup tuple.
@@ -100,7 +100,7 @@ func (b *Backup) backupCommands(iskey bool, req *model.BackupRPCRequest) []strin
 	var xbstream string
 
 	if b.conf.Passwd == "" {
-		backup = fmt.Sprintf("%s/innobackupex --defaults-file=%s --host=%s --port=%d --user=%s --throttle=%d --parallel=%d --stream=xbstream ./",
+		backup = fmt.Sprintf("%s/xtrabackup --defaults-file=%s --host=%s --port=%d --user=%s --backup --throttle=%d --parallel=%d --stream=xbstream --target-dir=./",
 			req.XtrabackupBinDir,
 			req.DefaultsFile,
 			req.Host,
@@ -109,7 +109,7 @@ func (b *Backup) backupCommands(iskey bool, req *model.BackupRPCRequest) []strin
 			req.IOPSLimits,
 			req.Parallel)
 	} else {
-		backup = fmt.Sprintf("%s/innobackupex --defaults-file=%s --host=%s --port=%d --user=%s --password=%s --throttle=%d --parallel=%d --stream=xbstream ./",
+		backup = fmt.Sprintf("%s/xtrabackup --defaults-file=%s --host=%s --port=%d --user=%s --password=%s --backup --throttle=%d --parallel=%d --stream=xbstream --target-dir=./",
 			req.XtrabackupBinDir,
 			req.DefaultsFile,
 			req.Host,
@@ -205,7 +205,7 @@ func (b *Backup) Cancel() error {
 }
 
 func (b *Backup) applylogCommands(req *model.BackupRPCRequest) []string {
-	arg := fmt.Sprintf("%s/innobackupex --defaults-file=%s --use-memory=%s --apply-log %s", b.conf.XtrabackupBinDir, b.conf.DefaultsFile, b.conf.UseMemory, req.BackupDir)
+	arg := fmt.Sprintf("%s/xtrabackup --defaults-file=%s --use-memory=%s --prepare --target-dir=%s", b.conf.XtrabackupBinDir, b.conf.DefaultsFile, b.conf.UseMemory, req.BackupDir)
 	return []string{
 		"-c",
 		arg,

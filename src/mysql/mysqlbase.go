@@ -43,8 +43,8 @@ var (
 	}
 
 	_ MysqlHandler = &MysqlBase{}
-	// timeout is 5s
-	reqTimeout = 1000 * 5
+	// timeout is 10s
+	reqTimeout = 10000
 )
 
 // MysqlBase tuple.
@@ -271,15 +271,15 @@ func (my *MysqlBase) DisableSemiSyncMaster(db *sql.DB) error {
 	return ExecuteWithTimeout(db, reqTimeout, cmds)
 }
 
-// SetSemiSyncMasterDefault useed to set semi-sync master timeout = default
-func (my *MysqlBase) SetSemiSyncMasterDefault(db *sql.DB) error {
-	cmds := "SET GLOBAL rpl_semi_sync_master_timeout=default"
+// SetSemiSyncMasterTimeout used to set semi-sync master timeout
+func (my *MysqlBase) SetSemiSyncMasterTimeout(db *sql.DB, timeout uint64) error {
+	cmds := fmt.Sprintf("SET GLOBAL rpl_semi_sync_master_timeout=%d", timeout)
 	return ExecuteWithTimeout(db, reqTimeout, cmds)
 }
 
 // CheckUserExists used to check the user exists or not.
-func (my *MysqlBase) CheckUserExists(db *sql.DB, user string) (bool, error) {
-	query := fmt.Sprintf("SELECT User FROM mysql.user WHERE User = '%s'", user)
+func (my *MysqlBase) CheckUserExists(db *sql.DB, user string, host string) (bool, error) {
+	query := fmt.Sprintf("SELECT User FROM mysql.user WHERE User = '%s' and Host = '%s'", user, host)
 	rows, err := Query(db, query)
 	if err != nil {
 		return false, err
@@ -309,14 +309,17 @@ func (my *MysqlBase) GetUser(db *sql.DB) ([]model.MysqlUser, error) {
 
 // CreateUser use to create new user.
 // see http://dev.mysql.com/doc/refman/5.7/en/string-literals.html
-func (my *MysqlBase) CreateUser(db *sql.DB, user string, passwd string) error {
-	query := fmt.Sprintf("CREATE USER `%s` IDENTIFIED BY '%s'", user, passwd)
+func (my *MysqlBase) CreateUser(db *sql.DB, user string, host string, passwd string, ssltype string) error {
+	query := fmt.Sprintf("CREATE USER `%s`@`%s` IDENTIFIED BY '%s'", user, host, passwd)
+	if ssltype == "YES" {
+		query = fmt.Sprintf("%s REQUIRE X509", query)
+	}
 	return Execute(db, query)
 }
 
 // DropUser used to drop the user.
 func (my *MysqlBase) DropUser(db *sql.DB, user string, host string) error {
-	query := fmt.Sprintf("DROP USER `%s`@'%s'", user, host)
+	query := fmt.Sprintf("DROP USER `%s`@`%s`", user, host)
 	return Execute(db, query)
 }
 
@@ -333,19 +336,13 @@ func (my *MysqlBase) CreateReplUserWithoutBinlog(db *sql.DB, user string, passwd
 
 // ChangeUserPasswd used to change the user password.
 func (my *MysqlBase) ChangeUserPasswd(db *sql.DB, user string, host string, passwd string) error {
-	query := fmt.Sprintf("ALTER USER `%s`@'%s' IDENTIFIED BY '%s'", user, host, passwd)
-	return Execute(db, query)
-}
-
-// Change56UserPasswd used to change the mysql56 user password.
-func (my *MysqlBase) Change56UserPasswd(db *sql.DB, user string, passwd string) error {
-	query := fmt.Sprintf("SET PASSWORD FOR `%s` = PASSWORD('%s')", user, passwd)
+	query := fmt.Sprintf("ALTER USER `%s`@`%s` IDENTIFIED BY '%s'", user, host, passwd)
 	return Execute(db, query)
 }
 
 // GrantNormalPrivileges used to grants normal privileges.
-func (my *MysqlBase) GrantNormalPrivileges(db *sql.DB, user string) error {
-	query := fmt.Sprintf("GRANT %s ON *.* TO `%s`", strings.Join(mysqlNormalPrivileges, ","), user)
+func (my *MysqlBase) GrantNormalPrivileges(db *sql.DB, user string, host string) error {
+	query := fmt.Sprintf("GRANT %s ON *.* TO `%s`@`%s`", strings.Join(mysqlNormalPrivileges, ","), user, host)
 	return my.grantPrivileges(db, query)
 }
 
@@ -379,13 +376,12 @@ func (my *MysqlBase) CreateUserWithPrivileges(db *sql.DB, user, passwd, database
 	if _, ok := standardSSL[ssltype]; !ok {
 		return errors.Errorf("can't create user[%v] require ssl_type[%v]", user, ssltype)
 	}
-	if ssltype == "YES" {
-		query = fmt.Sprintf("GRANT %s ON %s.%s TO `%s`@'%s' IDENTIFIED BY '%s' REQUIRE X509", privs, database, table, user, host, passwd)
 
-	} else {
-		query = fmt.Sprintf("GRANT %s ON %s.%s TO `%s`@'%s' IDENTIFIED BY '%s'", privs, database, table, user, host, passwd)
+	if err := my.CreateUser(db, user, host, passwd, ssltype); err != nil {
+		return errors.Errorf("create user[%v] with privileges[%v] require ssl_type[%v] failed: [%v]", user, privs, ssltype, err)
 	}
 
+	query = fmt.Sprintf("GRANT %s ON %s.%s TO `%s`@`%s`", privs, database, table, user, host)
 	return my.grantPrivileges(db, query)
 }
 
@@ -396,7 +392,7 @@ func (my *MysqlBase) GrantReplicationPrivileges(db *sql.DB, user string) error {
 }
 
 // GrantAllPrivileges used to grant all privis.
-func (my *MysqlBase) GrantAllPrivileges(db *sql.DB, user string, passwd string, ssl string) error {
+func (my *MysqlBase) GrantAllPrivileges(db *sql.DB, user string, host string, passwd string, ssl string) error {
 	var query string
 	// build standard ssl_type map
 	standardSSL := make(map[string]string)
@@ -407,14 +403,14 @@ func (my *MysqlBase) GrantAllPrivileges(db *sql.DB, user string, passwd string, 
 	// check ssl_type
 	ssltype := strings.TrimSpace(ssl)
 	if _, ok := standardSSL[ssltype]; !ok {
-		return errors.Errorf("can't create user[%v] require ssl_type[%v]", user, ssltype)
-	}
-	if ssltype == "YES" {
-		query = fmt.Sprintf("GRANT %s ON *.* TO `%s` IDENTIFIED BY '%s' REQUIRE X509 WITH GRANT OPTION", strings.Join(mysqlAllPrivileges, ","), user, passwd)
-	} else {
-		query = fmt.Sprintf("GRANT %s ON *.* TO `%s` IDENTIFIED BY '%s' WITH GRANT OPTION", strings.Join(mysqlAllPrivileges, ","), user, passwd)
+		return errors.Errorf("can't create user[%v]@[%v] require ssl_type[%v]", user, host, ssltype)
 	}
 
+	if err := my.CreateUser(db, user, host, passwd, ssltype); err != nil {
+		return errors.Errorf("create user[%v]@[%v] with all privileges require ssl_type[%v] failed: [%v]", user, host, ssltype, err)
+	}
+
+	query = fmt.Sprintf("GRANT %s ON *.* TO `%s`@`%s` WITH GRANT OPTION", strings.Join(mysqlAllPrivileges, ","), user, host)
 	return my.grantPrivileges(db, query)
 }
 

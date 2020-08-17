@@ -45,17 +45,17 @@ type MockGTID struct {
 	DisableSemiSyncMasterFn    func(*sql.DB) error
 	SelectSysVarFn             func(*sql.DB, string) (string, error)
 	SetSemiWaitSlaveCountFn    func(*sql.DB, int) error
-	SetSemiSyncMasterDefaultFn func(*sql.DB) error
+	SetSemiSyncMasterTimeoutFn func(*sql.DB, uint64) error
 
 	// Users
 	GetUserFn                     func(*sql.DB) ([]model.MysqlUser, error)
-	CheckUserExistsFn             func(*sql.DB, string) (bool, error)
-	CreateUserFn                  func(*sql.DB, string, string) error
+	CheckUserExistsFn             func(*sql.DB, string, string) (bool, error)
+	CreateUserFn                  func(*sql.DB, string, string, string, string) error
 	DropUserFn                    func(*sql.DB, string, string) error
 	ChangeUserPasswdFn            func(*sql.DB, string, string, string) error
 	CreateReplUserWithoutBinlogFn func(*sql.DB, string, string) error
-	GrantAllPrivilegesFn          func(*sql.DB, string, string) error
-	GrantNormalPrivilegesFn       func(*sql.DB, string) error
+	GrantAllPrivilegesFn          func(*sql.DB, string, string, string, string) error
+	GrantNormalPrivilegesFn       func(*sql.DB, string, string) error
 	CreateUserWithPrivilegesFn    func(*sql.DB, string, string, string, string, string, string, string) error
 	GrantReplicationPrivilegesFn  func(*sql.DB, string) error
 }
@@ -256,9 +256,9 @@ func (mogtid *MockGTID) DisableSemiSyncMaster(db *sql.DB) error {
 	return mogtid.DisableSemiSyncMasterFn(db)
 }
 
-// SetSemiSyncMasterDefault mock.
-func (mogtid *MockGTID) SetSemiSyncMasterDefault(db *sql.DB) error {
-	return mogtid.SetSemiSyncMasterDefaultFn(db)
+// SetSemiSyncMasterTimeout mock.
+func (mogtid *MockGTID) SetSemiSyncMasterTimeout(db *sql.DB, timeout uint64) error {
+	return mogtid.SetSemiSyncMasterTimeoutFn(db, timeout)
 }
 
 // DefaultSelectSysVar mock.
@@ -281,29 +281,29 @@ func (mogtid *MockGTID) SetSemiWaitSlaveCount(db *sql.DB, count int) error {
 	return mogtid.SetSemiWaitSlaveCountFn(db, count)
 }
 
-// SetSemiSyncMasterDefault mock
-func SetSemiSyncMasterDefault(db *sql.DB) error {
+// SetSemiSyncMasterTimeout mock
+func SetSemiSyncMasterTimeout(db *sql.DB, timeout uint64) error {
 	return nil
 }
 
 // User handlers.
 
 // CheckUserExists mock.
-func DefaultCheckUserExists(db *sql.DB, user string) (bool, error) {
+func DefaultCheckUserExists(db *sql.DB, user string, host string) (bool, error) {
 	return false, nil
 }
 
-func (mogtid *MockGTID) CheckUserExists(db *sql.DB, query string) (bool, error) {
-	return mogtid.CheckUserExistsFn(db, query)
+func (mogtid *MockGTID) CheckUserExists(db *sql.DB, user string, host string) (bool, error) {
+	return mogtid.CheckUserExistsFn(db, user, host)
 }
 
 // CreateUser mock.
-func DefaultCreateUser(db *sql.DB, user string, passwd string) error {
+func DefaultCreateUser(db *sql.DB, user string, host string, passwd string, ssltype string) error {
 	return nil
 }
 
-func (mogtid *MockGTID) CreateUser(db *sql.DB, user string, passwd string) error {
-	return mogtid.CreateUserFn(db, user, passwd)
+func (mogtid *MockGTID) CreateUser(db *sql.DB, user string, host string, passwd string, ssltype string) error {
+	return mogtid.CreateUserFn(db, user, host, passwd, ssltype)
 }
 
 // GetUser mock.
@@ -359,12 +359,12 @@ func (mogtid *MockGTID) ChangeUserPasswd(db *sql.DB, user string, host string, p
 }
 
 // GrantNormalPrivileges mock.
-func DefaultGrantNormalPrivileges(db *sql.DB, user string) error {
+func DefaultGrantNormalPrivileges(db *sql.DB, user string, host string) error {
 	return nil
 }
 
-func (mogtid *MockGTID) GrantNormalPrivileges(db *sql.DB, user string) error {
-	return mogtid.GrantNormalPrivilegesFn(db, user)
+func (mogtid *MockGTID) GrantNormalPrivileges(db *sql.DB, user string, host string) error {
+	return mogtid.GrantNormalPrivilegesFn(db, user, host)
 }
 
 // GrantReplicationPrivileges mock.
@@ -377,12 +377,12 @@ func (mogtid *MockGTID) GrantReplicationPrivileges(db *sql.DB, user string) erro
 }
 
 // GrantAllPrivileges mock.
-func DefaultGrantAllPrivileges(db *sql.DB, user string, passwd string) error {
+func DefaultGrantAllPrivileges(db *sql.DB, user string, host string, passwd string, ssl string) error {
 	return nil
 }
 
-func (mogtid *MockGTID) GrantAllPrivileges(db *sql.DB, user string, passwd, ssl string) error {
-	return mogtid.GrantAllPrivilegesFn(db, user, passwd)
+func (mogtid *MockGTID) GrantAllPrivileges(db *sql.DB, user string, host, passwd, ssl string) error {
+	return mogtid.GrantAllPrivilegesFn(db, user, host, passwd, ssl)
 }
 
 func defaultMockGTID() *MockGTID {
@@ -409,7 +409,7 @@ func defaultMockGTID() *MockGTID {
 	mock.DisableSemiSyncMasterFn = DefaultDisableSemiSyncMaster
 	mock.SelectSysVarFn = DefaultSelectSysVar
 	mock.SetSemiWaitSlaveCountFn = DefaultSetSemiWaitSlaveCount
-	mock.SetSemiSyncMasterDefaultFn = SetSemiSyncMasterDefault
+	mock.SetSemiSyncMasterTimeoutFn = SetSemiSyncMasterTimeout
 
 	// Users.
 	mock.CheckUserExistsFn = DefaultCheckUserExists

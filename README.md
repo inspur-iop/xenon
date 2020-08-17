@@ -1,4 +1,6 @@
-[![Build Status](https://travis-ci.org/radondb/xenon.png)](https://travis-ci.org/radondb/xenon)
+[![Github Actions Status](https://github.com/radondb/xenon/workflows/Xenon%20Build/badge.svg?event=push)](https://github.com/radondb/xenon/actions?query=workflow%3A%22Xenon+Build%22+event%3Apush)
+[![Github Actions Status](https://github.com/radondb/xenon/workflows/Xenon%20Test/badge.svg?event=push)](https://github.com/radondb/xenon/actions?query=workflow%3A%22Xenon+Test%22+event%3Apush)
+[![Github Actions Status](https://github.com/radondb/xenon/workflows/Xenon%20Coverage/badge.svg)](https://github.com/radondb/xenon/actions?query=workflow%3A%22Xenon+Coverage%22)
 [![Go Report Card](https://goreportcard.com/badge/github.com/radondb/xenon)](https://goreportcard.com/report/github.com/radondb/xenon)
 [![codecov.io](https://codecov.io/gh/radondb/xenon/graphs/badge.svg)](https://codecov.io/gh/radondb/xenon/branch/master)
 
