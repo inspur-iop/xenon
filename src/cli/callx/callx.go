@@ -429,6 +429,7 @@ func RequestBackupRPC(self string, conf *config.BackupConfig, backupdir string) 
 	req.DefaultsFile = conf.DefaultsFile
 
 	log.Warning("rebuildme.backup.req[%+v]", req)
+	log.Warning("This step may take a quite long time, please wait patiently and ```DO NOT INTERRUPT``` the progress.")
 
 	rsp := model.NewBackupRPCResponse(model.OK)
 	err = cli.Call(method, req, rsp)
